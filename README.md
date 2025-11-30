@@ -16,7 +16,7 @@ This project is a **live code playground** (or similar) built with HTML, CSS, an
 
 ## Screenshot
 
-![Project Screenshot](file:///C:/Users/sohai/.gemini/antigravity/brain/4198141f-13c8-463b-bc19-3f047d343b11/project_screenshot_1764506579295.png)
+![Project Screenshot](./Webview.png)
 
 *Above is a placeholder mockup representing the project's look and feel.*
 
