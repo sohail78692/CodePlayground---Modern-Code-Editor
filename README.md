@@ -16,9 +16,7 @@ This project is a **live code playground** (or similar) built with HTML, CSS, an
 
 ## Screenshot
 
-![Project Screenshot](./Webview.png)
-
-*Above is a placeholder mockup representing the project's look and feel.*
+[![Project Screenshot](Webview.png)](https://playgroundcode.netlify.app/)
 
 ## Installation
 
