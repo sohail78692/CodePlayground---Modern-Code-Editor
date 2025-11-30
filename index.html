@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodePlayground - Modern Code Editor</title>
+    <link rel="icon" type="image/png" href="code.png">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Monaco Editor -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            transition: background 0.3s ease;
+        }
+
+        /* Theme Variables */
+        :root {
+            --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --glass-bg: rgba(255, 255, 255, 0.1);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.8);
+            --shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        body.light-theme {
+            --bg-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            --glass-bg: rgba(255, 255, 255, 0.25);
+            --glass-border: rgba(255, 255, 255, 0.4);
+            --text-primary: #1a1a1a;
+            --text-secondary: rgba(26, 26, 26, 0.8);
+            --shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+            --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.15);
+        }
+
+        body {
+            background: var(--bg-gradient);
+            color: var(--text-primary);
+        }
+
+        /* Glass Effect */
+        .glass {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--shadow);
+        }
+
+        /* Toolbar Styles */
+        .toolbar {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        /* Button Styles */
+        .btn {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            color: var(--text-primary);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        /* Editor Container */
+        #editor {
+            width: 100%;
+            height: 100%;
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        /* Preview iframe */
+        #preview {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: white;
+            border-radius: 16px;
+        }
+
+        /* Resizer */
+        .resizer {
+            width: 8px;
+            background: var(--glass-bg);
+            cursor: col-resize;
+            position: relative;
+            transition: background 0.3s ease;
+        }
+
+        .resizer:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .resizer::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 3px;
+            height: 40px;
+            background: var(--glass-border);
+            border-radius: 2px;
+        }
+
+        /* Fullscreen Styles */
+        .fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 9999;
+            border-radius: 0 !important;
+            margin: 0 !important;
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            color: var(--text-primary);
+            padding: 16px 24px;
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+            z-index: 10000;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .resizer {
+                display: none;
+            }
+
+            #main-container {
+                flex-direction: column !important;
+            }
+
+            #editor-panel,
+            #preview-panel {
+                width: 100% !important;
+                height: 50% !important;
+            }
+        }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 12px;
+            height: 12px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1));
+            border-radius: 10px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.3));
+            background-clip: padding-box;
+        }
+
+        /* Loading Animation */
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--text-primary);
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Icon Styles */
+        .icon {
+            width: 20px;
+            height: 20px;
+            stroke-width: 2;
+            stroke: currentColor;
+            fill: none;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+    <!-- Main Container -->
+    <div class="h-screen flex flex-col">
+        <!-- Toolbar -->
+        <div class="toolbar px-6 py-4">
+            <div class="flex items-center justify-between">
+                <!-- Logo -->
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl glass flex items-center justify-center">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path d="M8 3L4 7l4 4M16 3l4 4-4 4M12 3v18" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold">CodePlayground</h1>
+                        <p class="text-xs opacity-80">Modern Code Editor</p>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="flex items-center gap-3">
+                    <!-- Theme Toggle -->
+                    <button id="themeToggle" class="btn px-4 py-2 rounded-lg flex items-center gap-2"
+                        title="Toggle Theme">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="5" />
+                            <path
+                                d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+                        </svg>
+                        <span class="hidden sm:inline">Theme</span>
+                    </button>
+
+                    <!-- Editor Fullscreen -->
+                    <button id="editorFullscreen" class="btn px-4 py-2 rounded-lg flex items-center gap-2"
+                        title="Editor Fullscreen">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path
+                                d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+                        </svg>
+                        <span class="hidden sm:inline">Editor</span>
+                    </button>
+
+                    <!-- Preview Fullscreen -->
+                    <button id="previewFullscreen" class="btn px-4 py-2 rounded-lg flex items-center gap-2"
+                        title="Preview Fullscreen">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <rect x="2" y="3" width="20" height="14" rx="2" />
+                            <path d="M8 21h8M12 17v4" />
+                        </svg>
+                        <span class="hidden sm:inline">Preview</span>
+                    </button>
+
+                    <!-- Copy Code -->
+                    <button id="copyBtn" class="btn px-4 py-2 rounded-lg flex items-center gap-2" title="Copy Code">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                        </svg>
+                        <span class="hidden sm:inline">Copy</span>
+                    </button>
+
+                    <!-- Download -->
+                    <button id="downloadBtn" class="btn px-4 py-2 rounded-lg flex items-center gap-2" title="Download">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
+                        </svg>
+                        <span class="hidden sm:inline">Download</span>
+                    </button>
+
+                    <!-- Clear -->
+                    <button id="clearBtn" class="btn px-4 py-2 rounded-lg flex items-center gap-2" title="Clear Editor">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path
+                                d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        </svg>
+                        <span class="hidden sm:inline">Clear</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div id="main-container" class="flex-1 flex p-6 gap-6 overflow-hidden">
+            <!-- Editor Panel -->
+            <div id="editor-panel" class="glass rounded-2xl overflow-hidden transition-all duration-300"
+                style="width: 50%; min-width: 300px;">
+                <div class="h-full flex flex-col">
+                    <div class="px-4 py-3 border-b border-white border-opacity-20">
+                        <h2 class="text-sm font-semibold opacity-90">CODE EDITOR</h2>
+                    </div>
+                    <div class="flex-1">
+                        <div id="editor"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resizer -->
+            <div id="resizer" class="resizer"></div>
+
+            <!-- Preview Panel -->
+            <div id="preview-panel" class="glass rounded-2xl overflow-hidden transition-all duration-300"
+                style="width: 50%; min-width: 300px;">
+                <div class="h-full flex flex-col">
+                    <div class="px-4 py-3 border-b border-white border-opacity-20">
+                        <h2 class="text-sm font-semibold opacity-90">LIVE PREVIEW</h2>
+                    </div>
+                    <div class="flex-1 bg-white rounded-b-2xl overflow-hidden">
+                        <iframe id="preview" sandbox="allow-scripts"></iframe>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Monaco Editor Configuration
+        require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
+
+        let editor;
+        let updateTimeout;
+        const DEBOUNCE_DELAY = 300;
+
+        // Default Template
+        const defaultCode = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Code</title>
+    <script src="https://cdn.tailwindcss.com"><\/script>
+</head>
+<body class="bg-gradient-to-br from-purple-500 to-pink-500 min-h-screen flex items-center justify-center">
+    <div class="bg-white/10 backdrop-blur-lg rounded-3xl p-12 shadow-2xl border border-white/20">
+        <h1 class="text-6xl font-bold text-white mb-4">Hello, World! 🚀</h1>
+        <p class="text-xl text-white/90 mb-6">Start coding and see live preview!</p>
+        <button onclick="celebrate()" class="bg-white text-purple-600 px-8 py-3 rounded-xl font-semibold hover:scale-105 transition-transform">
+            Click Me
+        </button>
+    </div>
+
+    <script>
+        function celebrate() {
+            alert('🎉 Awesome! Keep coding!');
+        }
+    <\/script>
+</body>
+</html>`;
+
+        // Initialize Monaco Editor
+        require(['vs/editor/editor.main'], function () {
+            editor = monaco.editor.create(document.getElementById('editor'), {
+                value: localStorage.getItem('code') || defaultCode,
+                language: 'html',
+                theme: 'vs-dark',
+                fontSize: 14,
+                minimap: { enabled: true },
+                automaticLayout: true,
+                wordWrap: 'on',
+                formatOnPaste: true,
+                formatOnType: true,
+                scrollBeyondLastLine: false,
+                lineNumbers: 'on',
+                renderWhitespace: 'selection',
+                tabSize: 2,
+                insertSpaces: true
+            });
+
+            // Listen for changes
+            editor.onDidChangeModelContent(() => {
+                clearTimeout(updateTimeout);
+                updateTimeout = setTimeout(() => {
+                    updatePreview();
+                    saveToLocalStorage();
+                }, DEBOUNCE_DELAY);
+            });
+
+            // Initial preview
+            updatePreview();
+        });
+
+        // Update Preview
+        function updatePreview() {
+            const code = editor.getValue();
+            const preview = document.getElementById('preview');
+
+            // Inject Tailwind CDN if not present
+            let processedCode = code;
+            if (!code.includes('cdn.tailwindcss.com')) {
+                processedCode = code.replace(
+                    '</head>',
+                    '    <script src="https://cdn.tailwindcss.com"><\/script>\n</head>'
+                );
+            }
+
+            // Inject smooth scroll styles
+            const smoothScrollStyles = `
+                <style>
+                    * { scroll-behavior: smooth; }
+                    ::-webkit-scrollbar { width: 10px; height: 10px; }
+                    ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.05); border-radius: 8px; }
+                    ::-webkit-scrollbar-thumb {
+                        background: linear-gradient(180deg, rgba(102, 126, 234, 0.5), rgba(118, 75, 162, 0.5));
+                        border-radius: 8px;
+                        border: 2px solid transparent;
+                        background-clip: padding-box;
+                    }
+                    ::-webkit-scrollbar-thumb:hover {
+                        background: linear-gradient(180deg, rgba(102, 126, 234, 0.7), rgba(118, 75, 162, 0.7));
+                        background-clip: padding-box;
+                    }
+                </style>
+            `;
+
+            if (!processedCode.includes('</head>')) {
+                processedCode = smoothScrollStyles + processedCode;
+            } else {
+                processedCode = processedCode.replace('</head>', smoothScrollStyles + '</head>');
+            }
+
+            preview.srcdoc = processedCode;
+        }
+
+        // Save to Local Storage
+        function saveToLocalStorage() {
+            localStorage.setItem('code', editor.getValue());
+        }
+
+        // Theme Toggle
+        const themeToggle = document.getElementById('themeToggle');
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+
+        if (savedTheme === 'light') {
+            document.body.classList.add('light-theme');
+            editor && monaco.editor.setTheme('vs-light');
+        }
+
+        themeToggle.addEventListener('click', () => {
+            const isLight = document.body.classList.toggle('light-theme');
+            monaco.editor.setTheme(isLight ? 'vs-light' : 'vs-dark');
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+            showToast(isLight ? '☀️ Light theme' : '🌙 Dark theme');
+        });
+
+        // Copy to Clipboard
+        document.getElementById('copyBtn').addEventListener('click', async () => {
+            const code = editor.getValue();
+            try {
+                await navigator.clipboard.writeText(code);
+                showToast('📋 Code copied to clipboard!');
+            } catch (err) {
+                showToast('❌ Failed to copy code');
+            }
+        });
+
+        // Download Code
+        document.getElementById('downloadBtn').addEventListener('click', () => {
+            const code = editor.getValue();
+            const blob = new Blob([code], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+            a.href = url;
+            a.download = `code-${timestamp}.html`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('💾 Code downloaded!');
+        });
+
+        // Clear Editor
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            if (confirm('Are you sure you want to clear the editor?')) {
+                editor.setValue(defaultCode);
+                showToast('🗑️ Editor cleared');
+            }
+        });
+
+        // Editor Fullscreen
+        document.getElementById('editorFullscreen').addEventListener('click', () => {
+            const editorPanel = document.getElementById('editor-panel');
+            editorPanel.classList.toggle('fullscreen');
+            showToast(editorPanel.classList.contains('fullscreen') ? '⚡ Editor fullscreen' : '↩️ Exited fullscreen');
+        });
+
+        // Preview Fullscreen
+        document.getElementById('previewFullscreen').addEventListener('click', () => {
+            const previewPanel = document.getElementById('preview-panel');
+            previewPanel.classList.toggle('fullscreen');
+            showToast(previewPanel.classList.contains('fullscreen') ? '🖥️ Preview fullscreen' : '↩️ Exited fullscreen');
+        });
+
+        // Resizer Functionality
+        const resizer = document.getElementById('resizer');
+        const editorPanel = document.getElementById('editor-panel');
+        const previewPanel = document.getElementById('preview-panel');
+        let isResizing = false;
+
+        resizer.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+
+            const container = document.getElementById('main-container');
+            const containerRect = container.getBoundingClientRect();
+            const newWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100;
+
+            if (newWidth > 20 && newWidth < 80) {
+                editorPanel.style.width = `${newWidth}%`;
+                previewPanel.style.width = `${100 - newWidth}%`;
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isResizing) {
+                isResizing = false;
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            }
+        });
+
+        // Touch Support for Resizer
+        resizer.addEventListener('touchstart', (e) => {
+            isResizing = true;
+        });
+
+        document.addEventListener('touchmove', (e) => {
+            if (!isResizing) return;
+
+            const touch = e.touches[0];
+            const container = document.getElementById('main-container');
+            const containerRect = container.getBoundingClientRect();
+            const newWidth = ((touch.clientX - containerRect.left) / containerRect.width) * 100;
+
+            if (newWidth > 20 && newWidth < 80) {
+                editorPanel.style.width = `${newWidth}%`;
+                previewPanel.style.width = `${100 - newWidth}%`;
+            }
+        });
+
+        document.addEventListener('touchend', () => {
+            isResizing = false;
+        });
+
+        // Toast Notification
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Keyboard Shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Ctrl/Cmd + S - Save (Download)
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                document.getElementById('downloadBtn').click();
+            }
+
+            // Ctrl/Cmd + Shift + C - Copy
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') {
+                e.preventDefault();
+                document.getElementById('copyBtn').click();
+            }
+
+            // Ctrl/Cmd + Shift + F - Editor Fullscreen
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'F') {
+                e.preventDefault();
+                document.getElementById('editorFullscreen').click();
+            }
+
+            // Escape - Exit Fullscreen
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.fullscreen').forEach(el => {
+                    el.classList.remove('fullscreen');
+                });
+            }
+        });
+    </script>
+</body>
+
+</html>
